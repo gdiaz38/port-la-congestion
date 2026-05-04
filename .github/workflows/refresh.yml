@@ -1,0 +1,50 @@
+name: Daily AIS Refresh
+
+on:
+  schedule:
+    - cron: '0 14 * * *'   # 7am Pacific daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline
+        env:
+          AIS_API_KEY: ${{ secrets.AIS_API_KEY }}
+        run: python3 scripts/pipeline.py
+
+      - name: Validate output
+        run: |
+          python3 - << 'PYEOF'
+          import pandas as pd, sys
+          df = pd.read_csv("data/vessels_live.csv")
+          print(f"Vessels captured: {len(df)}")
+          if len(df) == 0:
+              print("❌ No vessels — aborting commit")
+              sys.exit(1)
+          print("✅ Data looks good")
+          PYEOF
+
+      - name: Commit updated data
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name  "GitHub Actions"
+          git add data/vessels_live.csv data/vessels_history.csv
+          git diff --staged --quiet || git commit -m "auto: AIS refresh $(date -u +%Y-%m-%d)"
+          git push
