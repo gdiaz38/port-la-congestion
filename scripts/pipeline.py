@@ -30,7 +30,7 @@ def run():
     if os.path.exists(HISTORY_PATH):
         history = pd.read_csv(HISTORY_PATH)
         history = pd.concat([history, df], ignore_index=True)
-        history["snapshot_time"] = pd.to_datetime(history["snapshot_time"], utc=True)
+        history["snapshot_time"] = pd.to_datetime(history["snapshot_time"], format='ISO8601', utc=True)
         cutoff  = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=30)
         history = history[history["snapshot_time"] >= cutoff]
     else:
